@@ -5,6 +5,8 @@ import (
 	"io"
 	"net"
 	"strings"
+
+	"github.com/widua/http-from-tcp-go/internal/request"
 )
 
 func getLinesChannel(f io.ReadCloser) <-chan string {
@@ -52,9 +54,13 @@ func main() {
 		}
 		defer conn.Close()
 		fmt.Println("Connection accepted...")
-		for message := range getLinesChannel(conn) {
-			fmt.Println(message)
+		req, err := request.RequestFromReader(conn)
+		if err != nil {
+			fmt.Printf("Error: %v", err)
+			continue
 		}
+		fmt.Printf("Request line: \n - Method: %v\n- Target: %v\n- Version: %v", req.RequestLine.Method, req.RequestLine.RequestTarget, req.RequestLine.HttpVersion)
+
 		fmt.Printf("Connection closed...")
 	}
 

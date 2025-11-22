@@ -3,7 +3,6 @@ package request
 import (
 	"bytes"
 	"errors"
-	"fmt"
 	"io"
 	"strings"
 )
@@ -11,6 +10,7 @@ import (
 type parseState int
 
 const crlf = "\r\n"
+const BUFFER_SIZE = 8
 
 const (
 	INITIALIZED parseState = iota
@@ -29,34 +29,78 @@ type RequestLine struct {
 }
 
 func RequestFromReader(input io.Reader) (*Request, error) {
-	fullData, err := io.ReadAll(input)
-	if err != nil {
-		return nil, err
+	buf := make([]byte, BUFFER_SIZE)
+	readToIndex := 0
+	req := Request{
+		State: INITIALIZED,
 	}
-	requestLine, err := parseRequestLine(fullData)
 
-	if err != nil {
-		return nil, fmt.Errorf("Eror while parsing request line: %v", err)
+	for req.State != DONE {
+		if readToIndex >= len(buf) {
+			newBuf := make([]byte, len(buf)*2)
+			copy(newBuf, buf)
+			buf = newBuf
+		}
+		readedBytes, err := input.Read(buf[readToIndex:])
+		if err != nil {
+			if err == io.EOF {
+				req.State = DONE
+				break
+
+			}
+			return nil, err
+		}
+		readToIndex += readedBytes
+		parsedBytes, err := req.parse(buf)
+		if err != nil {
+			return nil, err
+		}
+		copy(buf, buf[parsedBytes:])
+		readToIndex -= parsedBytes
+
 	}
-	req := Request{RequestLine: *requestLine}
 	return &req, nil
 }
 
-func parseRequestLine(reqData []byte) (*RequestLine, error) {
+func (r *Request) parse(data []byte) (int, error) {
+	if r.State == INITIALIZED {
+		readed, err := parseRequestLine(data)
+		if err != nil {
+			return 0, err
+		}
+		if readed == 0 {
+			return 0, nil
+		}
+		fullData := string(data[:readed])
+		requestLine, err := requestLineFromString(fullData)
+		if err != nil {
+			return 0, err
+		}
+		r.RequestLine = *requestLine
+		r.State = DONE
+		return readed, nil
+	}
+	if r.State == DONE {
+		return 0, errors.New("Trying to read data in done state")
+	}
+	return 0, errors.New("Unknown State")
+
+}
+
+func parseRequestLine(reqData []byte) (int, error) {
 
 	ix := bytes.Index(reqData, []byte(crlf))
 
 	if ix == -1 {
-		return nil, errors.New("Could not find CRLF in request line")
+		return 0, nil
 	}
 
-	requestline := string(reqData[:ix])
-
-	return requestLineFromString(requestline)
+	return ix + len(crlf), nil
 }
 
 func requestLineFromString(requestLine string) (*RequestLine, error) {
 	unsupportedHTTPVersion := errors.New("Unsupported. Only HTTP version 1.1")
+	requestLine = strings.TrimRight(requestLine, "\r\n")
 	splitted := strings.Split(requestLine, " ")
 
 	if len(splitted) != 3 {
