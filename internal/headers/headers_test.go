@@ -14,15 +14,65 @@ func TestHeaders(t *testing.T) {
 	n, done, err := headers.Parse(data)
 	require.NoError(t, err)
 	require.NotNil(t, headers)
-	assert.Equal(t, "localhost:42069", headers["Host"])
+	assert.Equal(t, "localhost:42069", headers["host"])
 	assert.Equal(t, 23, n)
 	assert.False(t, done)
 
+	// Test: Done after parse
+	headers = NewHeaders()
+	data = []byte("Host: localhost:42069\r\n\r\n")
+	n, done, err = headers.Parse(data)
+	require.NoError(t, err)
+	require.NotNil(t, headers)
+	assert.Equal(t, "localhost:42069", headers["host"])
+	assert.Equal(t, 23, n)
+	assert.False(t, done)
+	n, done, err = headers.Parse(data[n:])
+	require.NoError(t, err)
+	assert.Equal(t, 0, n)
+	assert.True(t, done)
+
 	// Test: Invalid spacing header
 	headers = NewHeaders()
-	data = []byte("       Host : localhost:42069       \r\n\r\n")
+	data = []byte("       host : localhost:42069       \r\n\r\n")
 	n, done, err = headers.Parse(data)
 	require.Error(t, err)
 	assert.Equal(t, 0, n)
 	assert.False(t, done)
+
+	// Test: Valid multiple headers
+	headers = NewHeaders()
+	data = []byte("Host: localhost\r\nPort:42069\r\n\r\n")
+	n, done, err = headers.Parse(data)
+	require.NoError(t, err)
+	require.NotNil(t, headers)
+	assert.Equal(t, "localhost", headers["host"])
+	assert.Equal(t, 17, n)
+	assert.False(t, done)
+	n, done, err = headers.Parse(data[n:])
+	require.NoError(t, err)
+	require.NotNil(t, headers)
+	assert.Equal(t, "42069", headers["port"])
+	assert.Equal(t, 12, n)
+	assert.False(t, done)
+
+	// Test: Case insensitivity of field-name
+	headers = NewHeaders()
+	data = []byte("Host: localhost\r\nhost: localhost\r\n\r\n")
+	n, done, err = headers.Parse(data)
+	require.NoError(t, err)
+	require.NotNil(t, headers)
+	assert.Equal(t, "localhost", headers["host"])
+	n, done, err = headers.Parse(data[n:])
+	require.NoError(t, err)
+	assert.Equal(t, 1, len(headers))
+
+	// Test: Invalid character in field-name
+	headers = NewHeaders()
+	data = []byte("H@st: localhost\r\n\r\n")
+	n, done, err = headers.Parse(data)
+	require.Error(t, err)
+	assert.Equal(t, 0, n)
+	assert.False(t, done)
+
 }

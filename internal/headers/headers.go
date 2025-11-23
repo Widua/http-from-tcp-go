@@ -37,8 +37,35 @@ func (h Headers) headerFromString(headerLine string) error {
 	headerName := strings.TrimSpace(headerLine[:ix])
 	headerValue := strings.TrimSpace(headerLine[ix+1:])
 
+	headerName = strings.ToLower(headerName)
+
+	if !isValidHeaderName(headerName) {
+		return fmt.Errorf("Invalid field-name: %v", headerName)
+	}
+
 	h[headerName] = headerValue
 	return nil
+}
+
+func isValidHeaderName(headerName string) bool {
+	const allowedChars = "!#$%&'*+-.^_`|~"
+
+	for _, rune := range headerName {
+		if rune > 127 {
+			return false
+		}
+		if 'a' <= rune && rune <= 'z' {
+			continue
+		}
+		if '0' <= rune && rune <= '9' {
+			continue
+		}
+		if strings.ContainsRune(allowedChars, rune) {
+			continue
+		}
+		return false
+	}
+	return true
 }
 
 func NewHeaders() Headers {
