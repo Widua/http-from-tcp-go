@@ -42,6 +42,10 @@ func (h Headers) headerFromString(headerLine string) error {
 	if !isValidHeaderName(headerName) {
 		return fmt.Errorf("Invalid field-name: %v", headerName)
 	}
+	if v, ok := h[headerName]; ok {
+		nv := fmt.Sprintf("%s, %s", v, headerValue)
+		headerValue = nv
+	}
 
 	h[headerName] = headerValue
 	return nil
