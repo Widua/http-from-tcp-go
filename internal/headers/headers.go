@@ -30,6 +30,10 @@ func (h Headers) Parse(data []byte) (n int, done bool, err error) {
 func (h Headers) headerFromString(headerLine string) error {
 	ix := strings.Index(headerLine, ":")
 
+	if ix == -1 {
+		return fmt.Errorf("Malformed header")
+	}
+
 	if headerLine[ix-1] == ' ' {
 		return fmt.Errorf("Incorrect format of header: %v", headerLine)
 	}

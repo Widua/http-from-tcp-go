@@ -5,6 +5,8 @@ import (
 	"errors"
 	"io"
 	"strings"
+
+	"github.com/widua/http-from-tcp-go/internal/headers"
 )
 
 type parseState int
@@ -14,12 +16,15 @@ const BUFFER_SIZE = 8
 
 const (
 	INITIALIZED parseState = iota
+	PARSING_HEADERS
 	DONE
 )
 
 type Request struct {
 	RequestLine RequestLine
-	State       parseState
+	Headers     headers.Headers
+
+	state parseState
 }
 
 type RequestLine struct {
@@ -32,10 +37,10 @@ func RequestFromReader(input io.Reader) (*Request, error) {
 	buf := make([]byte, BUFFER_SIZE)
 	readToIndex := 0
 	req := Request{
-		State: INITIALIZED,
+		state: INITIALIZED,
 	}
 
-	for req.State != DONE {
+	for req.state != DONE {
 		if readToIndex >= len(buf) {
 			newBuf := make([]byte, len(buf)*2)
 			copy(newBuf, buf)
@@ -44,7 +49,7 @@ func RequestFromReader(input io.Reader) (*Request, error) {
 		readedBytes, err := input.Read(buf[readToIndex:])
 		if err != nil {
 			if err == io.EOF {
-				req.State = DONE
+				req.state = DONE
 				break
 
 			}
@@ -55,7 +60,10 @@ func RequestFromReader(input io.Reader) (*Request, error) {
 		if err != nil {
 			return nil, err
 		}
-		copy(buf, buf[parsedBytes:])
+		newBuf := make([]byte, len(buf))
+		copy(newBuf, buf[parsedBytes:])
+		buf = newBuf
+
 		readToIndex -= parsedBytes
 
 	}
@@ -63,7 +71,8 @@ func RequestFromReader(input io.Reader) (*Request, error) {
 }
 
 func (r *Request) parse(data []byte) (int, error) {
-	if r.State == INITIALIZED {
+	switch r.state {
+	case INITIALIZED:
 		readed, err := parseRequestLine(data)
 		if err != nil {
 			return 0, err
@@ -77,12 +86,30 @@ func (r *Request) parse(data []byte) (int, error) {
 			return 0, err
 		}
 		r.RequestLine = *requestLine
-		r.State = DONE
+		r.state = PARSING_HEADERS
+		r.Headers = headers.NewHeaders()
 		return readed, nil
-	}
-	if r.State == DONE {
+
+	case PARSING_HEADERS:
+
+		n, done, err := r.Headers.Parse(data)
+		if err != nil {
+			return 0, err
+		}
+		if done {
+			r.state = DONE
+			return n, nil
+		}
+		if n == 0 {
+			return 0, nil
+		}
+		return n, nil
+
+	case DONE:
 		return 0, errors.New("Trying to read data in done state")
+
 	}
+
 	return 0, errors.New("Unknown State")
 
 }
