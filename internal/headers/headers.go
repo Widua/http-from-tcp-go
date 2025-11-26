@@ -27,6 +27,16 @@ func (h Headers) Parse(data []byte) (n int, done bool, err error) {
 	return ix + len(crlf), false, nil
 }
 
+func (h Headers) String() (s string) {
+	s = "Headers:\n"
+
+	for k, v := range h {
+		s += fmt.Sprintf("- %v: %v\n", k, v)
+	}
+
+	return
+}
+
 func (h Headers) headerFromString(headerLine string) error {
 	ix := strings.Index(headerLine, ":")
 

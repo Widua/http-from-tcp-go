@@ -59,7 +59,8 @@ func main() {
 			fmt.Printf("Error: %v", err)
 			continue
 		}
-		fmt.Printf("Request line: \n - Method: %v\n- Target: %v\n- Version: %v", req.RequestLine.Method, req.RequestLine.RequestTarget, req.RequestLine.HttpVersion)
+		fmt.Printf("Request line: \n - Method: %v\n- Target: %v\n- Version: %v\n", req.RequestLine.Method, req.RequestLine.RequestTarget, req.RequestLine.HttpVersion)
+		fmt.Print(req.Headers)
 
 		fmt.Printf("Connection closed...")
 	}
