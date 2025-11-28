@@ -2,6 +2,7 @@ package headers
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"strings"
 )
@@ -25,6 +26,23 @@ func (h Headers) Parse(data []byte) (n int, done bool, err error) {
 	}
 
 	return ix + len(crlf), false, nil
+}
+
+func (h Headers) Get(key string) (string, error) {
+	key = strings.ToLower(key)
+
+	if !isValidHeaderName(key) {
+		return "", errors.New("Invalid header name")
+
+	}
+
+	val, ok := h[key]
+
+	if !ok {
+		return "", errors.New("Header not found")
+	}
+
+	return val, nil
 }
 
 func (h Headers) String() (s string) {

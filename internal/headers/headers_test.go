@@ -83,3 +83,31 @@ func TestHeaders(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, "localhost, 127.0.0.1", headers["host"])
 }
+
+func TestHeaderGetter(t *testing.T) {
+
+	// Test: Correct get
+	headers := NewHeaders()
+	headers["host"] = "localhost"
+	value, err := headers.Get("host")
+	require.NoError(t, err)
+	assert.Equal(t, "localhost", value)
+
+	// Test: Correct get uppercase
+	headers = NewHeaders()
+	headers["host"] = "localhost"
+	value, err = headers.Get("Host")
+	require.NoError(t, err)
+	assert.Equal(t, "localhost", value)
+
+	// Test: Error incorrect name
+	headers = NewHeaders()
+	headers["host"] = "localhost"
+	value, err = headers.Get("h@st")
+	require.Error(t, err)
+
+	// Test: Error not existing header
+	headers = NewHeaders()
+	value, err = headers.Get("host")
+	require.Error(t, err)
+}

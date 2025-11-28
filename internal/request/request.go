@@ -17,12 +17,14 @@ const BUFFER_SIZE = 8
 const (
 	INITIALIZED parseState = iota
 	PARSING_HEADERS
+	PARSING_BODY
 	DONE
 )
 
 type Request struct {
 	RequestLine RequestLine
 	Headers     headers.Headers
+	Body        []byte
 
 	state parseState
 }
@@ -97,7 +99,7 @@ func (r *Request) parse(data []byte) (int, error) {
 			return 0, err
 		}
 		if done {
-			r.state = DONE
+			r.state = PARSING_BODY
 			return n, nil
 		}
 		if n == 0 {
@@ -105,12 +107,20 @@ func (r *Request) parse(data []byte) (int, error) {
 		}
 		return n, nil
 
+	case PARSING_BODY:
+
+		r.state = DONE
+
 	case DONE:
 		return 0, errors.New("Trying to read data in done state")
 
 	}
 
 	return 0, errors.New("Unknown State")
+
+}
+
+func (r *Request) parseBody(data []byte) {
 
 }
 
