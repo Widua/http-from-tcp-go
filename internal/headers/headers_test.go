@@ -109,5 +109,6 @@ func TestHeaderGetter(t *testing.T) {
 	// Test: Error not existing header
 	headers = NewHeaders()
 	value, err = headers.Get("host")
-	require.Error(t, err)
+	require.NoError(t, err)
+	assert.Equal(t, "", value)
 }

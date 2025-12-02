@@ -39,7 +39,7 @@ func (h Headers) Get(key string) (string, error) {
 	val, ok := h[key]
 
 	if !ok {
-		return "", errors.New("Header not found")
+		return "", nil
 	}
 
 	return val, nil

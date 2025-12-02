@@ -60,7 +60,8 @@ func main() {
 			continue
 		}
 		fmt.Printf("Request line: \n - Method: %v\n- Target: %v\n- Version: %v\n", req.RequestLine.Method, req.RequestLine.RequestTarget, req.RequestLine.HttpVersion)
-		fmt.Print(req.Headers)
+		fmt.Println(req.Headers)
+		fmt.Printf("Body:\n%v", string(req.Body))
 
 		fmt.Printf("Connection closed...")
 	}

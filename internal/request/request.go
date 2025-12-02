@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"errors"
 	"io"
+	"strconv"
 	"strings"
 
 	"github.com/widua/http-from-tcp-go/internal/headers"
@@ -58,7 +59,7 @@ func RequestFromReader(input io.Reader) (*Request, error) {
 			return nil, err
 		}
 		readToIndex += readedBytes
-		parsedBytes, err := req.parse(buf)
+		parsedBytes, err := req.parse(buf[:readToIndex])
 		if err != nil {
 			return nil, err
 		}
@@ -68,6 +69,11 @@ func RequestFromReader(input io.Reader) (*Request, error) {
 
 		readToIndex -= parsedBytes
 
+	}
+
+	contentLength, _ := req.getContentLength()
+	if contentLength != len(req.Body) {
+		return nil, errors.New("Invalid Content-Lenght")
 	}
 	return &req, nil
 }
@@ -93,14 +99,13 @@ func (r *Request) parse(data []byte) (int, error) {
 		return readed, nil
 
 	case PARSING_HEADERS:
-
 		n, done, err := r.Headers.Parse(data)
 		if err != nil {
 			return 0, err
 		}
 		if done {
 			r.state = PARSING_BODY
-			return n, nil
+			return n + len(crlf), nil
 		}
 		if n == 0 {
 			return 0, nil
@@ -109,7 +114,21 @@ func (r *Request) parse(data []byte) (int, error) {
 
 	case PARSING_BODY:
 
-		r.state = DONE
+		contentLength, err := r.getContentLength()
+		if err != nil {
+			return 0, nil
+		}
+
+		r.Body = append(r.Body, data...)
+
+		if len(r.Body) > contentLength {
+			return 0, errors.New("Body greater than content-length")
+		}
+		if len(r.Body) == contentLength {
+			r.state = DONE
+			return len(data), nil
+		}
+		return len(data), nil
 
 	case DONE:
 		return 0, errors.New("Trying to read data in done state")
@@ -120,8 +139,20 @@ func (r *Request) parse(data []byte) (int, error) {
 
 }
 
-func (r *Request) parseBody(data []byte) {
-
+func (r *Request) getContentLength() (int, error) {
+	contentLen, err := r.Headers.Get("content-length")
+	if err != nil {
+		return 0, err
+	}
+	if contentLen == "" {
+		r.state = DONE
+		return 0, nil
+	}
+	ln, err := strconv.Atoi(contentLen)
+	if err != nil {
+		return 0, err
+	}
+	return ln, nil
 }
 
 func parseRequestLine(reqData []byte) (int, error) {
