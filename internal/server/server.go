@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"net"
 	"sync/atomic"
+
+	"github.com/widua/http-from-tcp-go/internal/response"
 )
 
 type Server struct {
@@ -42,9 +44,7 @@ func (s *Server) listen() {
 }
 
 func (s *Server) handle(conn net.Conn) {
-	fmt.Println("HANDLE")
-	resp := "HTTP/1.1 200 OK\r\nContent-Type: text/plain\r\nContent-Length: 13\r\n\r\nHello World!"
-	conn.Write([]byte(resp))
+	response.WriteStatusLine(conn, response.OK)
+	response.WriteHeaders(conn, response.GetDefaultHeaders(0))
 	conn.Close()
-
 }
