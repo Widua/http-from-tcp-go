@@ -66,9 +66,7 @@ func RequestFromReader(input io.Reader) (*Request, error) {
 		newBuf := make([]byte, len(buf))
 		copy(newBuf, buf[parsedBytes:])
 		buf = newBuf
-
 		readToIndex -= parsedBytes
-
 	}
 
 	contentLength, _ := req.getContentLength()
@@ -103,13 +101,15 @@ func (r *Request) parse(data []byte) (int, error) {
 		if err != nil {
 			return 0, err
 		}
-		if done {
+		if done || bytes.Index(data[n:], []byte(crlf)) == 0 {
 			r.state = PARSING_BODY
+			r.getContentLength()
 			return n + len(crlf), nil
 		}
 		if n == 0 {
 			return 0, nil
 		}
+
 		return n, nil
 
 	case PARSING_BODY:

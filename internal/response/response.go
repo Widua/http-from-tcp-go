@@ -34,11 +34,8 @@ func WriteStatusLine(w io.Writer, status Status) error {
 
 	statusLine := fmt.Sprintf("%v %v %v\r\n", protocol, statusCode.Status, statusCode.Reason)
 	_, err := w.Write([]byte(statusLine))
-	if err != nil {
-		return err
-	}
 
-	return nil
+	return err
 }
 
 func GetDefaultHeaders(contentLen int) headers.Headers {
@@ -51,11 +48,13 @@ func GetDefaultHeaders(contentLen int) headers.Headers {
 }
 
 func WriteHeaders(w io.Writer, headers headers.Headers) error {
-
 	for k, v := range headers {
 		headerLine := fmt.Sprintf("%v: %v\r\n", k, v)
-		w.Write([]byte(headerLine))
+		_, err := w.Write([]byte(headerLine))
+		if err != nil {
+			return err
+		}
 	}
-	w.Write([]byte("\r\n"))
-	return nil
+	_, err := w.Write([]byte("\r\n"))
+	return err
 }
