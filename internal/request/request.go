@@ -49,20 +49,18 @@ func RequestFromReader(input io.Reader) (*Request, error) {
 			copy(newBuf, buf)
 			buf = newBuf
 		}
-		readedBytes, err := input.Read(buf[readToIndex:])
-		if err != nil {
-			if err == io.EOF {
-				req.state = DONE
-				break
 
-			}
-			return nil, err
-		}
-		readToIndex += readedBytes
 		parsedBytes, err := req.parse(buf[:readToIndex])
+
 		if err != nil {
 			return nil, err
 		}
+		if parsedBytes == 0 {
+			readedBytes := 0
+			readedBytes, buf, err = req.readData(input, buf, readToIndex)
+			readToIndex += readedBytes
+		}
+
 		newBuf := make([]byte, len(buf))
 		copy(newBuf, buf[parsedBytes:])
 		buf = newBuf
@@ -74,6 +72,16 @@ func RequestFromReader(input io.Reader) (*Request, error) {
 		return nil, errors.New("Invalid Content-Lenght")
 	}
 	return &req, nil
+}
+
+func (r *Request) readData(input io.Reader, buf []byte, readToIndex int) (int, []byte, error) {
+	readedBytes, err := input.Read(buf[readToIndex:])
+	if err == io.EOF {
+		r.state = DONE
+		return 0, buf, err
+	}
+
+	return readedBytes, buf, err
 }
 
 func (r *Request) parse(data []byte) (int, error) {

@@ -1,15 +1,17 @@
 package main
 
 import (
-	"os"
-	"os/signal"
-
-	"log"
-	"syscall"
-
+	"fmt"
 	"github.com/widua/http-from-tcp-go/internal/request"
 	"github.com/widua/http-from-tcp-go/internal/response"
 	"github.com/widua/http-from-tcp-go/internal/server"
+	"io"
+	"log"
+	"net/http"
+	"os"
+	"os/signal"
+	"strings"
+	"syscall"
 )
 
 const port = 42069
@@ -31,15 +33,40 @@ func main() {
 
 func handle(w response.Writer, req *request.Request) {
 
-	switch req.RequestLine.RequestTarget {
-	case "/yourproblem":
+	switch {
+	case strings.HasPrefix(req.RequestLine.RequestTarget, "/yourproblem"):
 		handleBadRequest(w)
-	case "/myproblem":
+	case strings.HasPrefix(req.RequestLine.RequestTarget, "/myproblem"):
 		handleInternalServerError(w)
+	case strings.HasPrefix(req.RequestLine.RequestTarget, "/httpbin"):
+		handleHttpBin(w, req)
 	default:
 		handleOk(w)
 
 	}
+}
+
+func handleHttpBin(w response.Writer, req *request.Request) {
+	httpBinPath := strings.TrimPrefix(req.RequestLine.RequestTarget, "/httpbin/")
+	headers := response.GetChunkEncodingHeaders()
+
+	resp, _ := http.Get(fmt.Sprintf("https://httpbin.org/%v", httpBinPath))
+	w.WriteStatusLine(response.OK)
+	w.WriteHeaders(headers)
+
+	for {
+		byteBuff := make([]byte, 1024)
+		_, err := resp.Body.Read(byteBuff)
+		if err != nil {
+			if err == io.EOF {
+				w.WriteChunkedBodyDone()
+				return
+			}
+			continue
+		}
+		w.WriteChunkedBody(byteBuff)
+	}
+
 }
 
 func handleBadRequest(w response.Writer) {
