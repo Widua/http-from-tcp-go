@@ -1,7 +1,6 @@
 package server
 
 import (
-	"bytes"
 	"fmt"
 	"net"
 	"sync/atomic"
@@ -52,19 +51,11 @@ func (s *Server) listen() {
 func (s *Server) handle(conn net.Conn) {
 	defer conn.Close()
 	req, err := request.RequestFromReader(conn)
+	writer := response.NewWriter(conn)
 	if err != nil {
 		error := HandlerError{response.BAD_REQUEST, fmt.Sprintf("Error processing request: %v", err.Error())}
-		error.Write(conn)
+		error.Write(writer)
 	}
-	buff := bytes.NewBuffer(make([]byte, 0))
-	reqErr := s.Handler(buff, req)
-	if reqErr != nil {
-		reqErr.Write(conn)
-		return
-	}
-	body := buff.Bytes()
-	headers := response.GetDefaultHeaders(len(body))
-	response.WriteStatusLine(conn, response.OK)
-	response.WriteHeaders(conn, headers)
-	conn.Write(body)
+
+	s.Handler(writer, req)
 }

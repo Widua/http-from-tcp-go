@@ -1,7 +1,6 @@
 package main
 
 import (
-	"io"
 	"os"
 	"os/signal"
 
@@ -30,16 +29,116 @@ func main() {
 	log.Println("Server gracefully stopped")
 }
 
-func handle(w io.Writer, req *request.Request) *server.HandlerError {
+func handle(w response.Writer, req *request.Request) {
 
 	switch req.RequestLine.RequestTarget {
 	case "/yourproblem":
-		return &server.HandlerError{StatusCode: response.BAD_REQUEST, Message: "Your problem is not my problem\n"}
+		handleBadRequest(w)
 	case "/myproblem":
-		return &server.HandlerError{StatusCode: response.INTERNAL_SERVER_ERROR, Message: "Woopsie, my bad\n"}
+		handleInternalServerError(w)
 	default:
-		w.Write([]byte("All good, frfr\n"))
-	}
-	return nil
+		handleOk(w)
 
+	}
+}
+
+func handleBadRequest(w response.Writer) {
+
+	resMessage := `
+	<html>
+	<head>
+	<title>400 Bad Request</title>
+	</head>
+	<body>
+	<h1>Bad Request</h1>
+	<p>Your request honestly kinda sucked.</p>
+	</body>
+	</html>
+	`
+
+	err := w.WriteStatusLine(response.BAD_REQUEST)
+	if err != nil {
+		handleError(w, err)
+		return
+	}
+	headers := response.GetDefaultHeaders(len(resMessage))
+	headers["content-type"] = "text/html"
+	err = w.WriteHeaders(headers)
+	if err != nil {
+		handleError(w, err)
+		return
+	}
+	_, err = w.WriteBody([]byte(resMessage))
+	if err != nil {
+		handleError(w, err)
+		return
+
+	}
+}
+func handleInternalServerError(w response.Writer) {
+	resMessage := `
+	<html>
+	<head>
+	<title>500 Internal Server Error</title>
+	</head>
+	<body>
+	<h1>Internal Server Error</h1>
+	<p>Okay, you know what? This one is on me.</p>
+	</body>
+	</html>
+	`
+	err := w.WriteStatusLine(response.INTERNAL_SERVER_ERROR)
+	if err != nil {
+		handleError(w, err)
+		return
+	}
+	headers := response.GetDefaultHeaders(len(resMessage))
+	headers["content-type"] = "text/html"
+	err = w.WriteHeaders(headers)
+	if err != nil {
+		handleError(w, err)
+		return
+	}
+	_, err = w.WriteBody([]byte(resMessage))
+	if err != nil {
+		handleError(w, err)
+		return
+
+	}
+}
+func handleOk(w response.Writer) {
+	resMessage := `
+	<html>
+	<head>
+	<title>200 OK</title>
+	</head>
+	<body>
+	<h1>Success!</h1>
+	<p>Your request was an absolute banger.</p>
+	</body>
+	</html>
+	`
+	err := w.WriteStatusLine(response.OK)
+	if err != nil {
+		handleError(w, err)
+		return
+	}
+	headers := response.GetDefaultHeaders(len(resMessage))
+	headers["content-type"] = "text/html"
+	err = w.WriteHeaders(headers)
+	if err != nil {
+		handleError(w, err)
+		return
+	}
+	_, err = w.WriteBody([]byte(resMessage))
+	if err != nil {
+		handleError(w, err)
+		return
+
+	}
+}
+
+func handleError(w response.Writer, err error) {
+	handleErr := server.HandlerError{StatusCode: response.INTERNAL_SERVER_ERROR, Message: err.Error()}
+	handleErr.Write(w)
 }
