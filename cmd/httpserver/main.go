@@ -55,8 +55,8 @@ func handleHttpBin(w response.Writer, req *request.Request) {
 	w.WriteHeaders(headers)
 
 	for {
-		byteBuff := make([]byte, 1024)
-		_, err := resp.Body.Read(byteBuff)
+		byteBuff := make([]byte, 32)
+		n, err := resp.Body.Read(byteBuff)
 		if err != nil {
 			if err == io.EOF {
 				w.WriteChunkedBodyDone()
@@ -64,7 +64,7 @@ func handleHttpBin(w response.Writer, req *request.Request) {
 			}
 			continue
 		}
-		w.WriteChunkedBody(byteBuff)
+		w.WriteChunkedBody(byteBuff[:n])
 	}
 
 }

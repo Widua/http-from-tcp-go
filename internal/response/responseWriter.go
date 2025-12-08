@@ -2,8 +2,9 @@ package response
 
 import (
 	"fmt"
-	"github.com/widua/http-from-tcp-go/internal/headers"
 	"io"
+
+	"github.com/widua/http-from-tcp-go/internal/headers"
 )
 
 type writerState int
@@ -65,14 +66,14 @@ func (w *Writer) WriteBody(body []byte) (int, error) {
 }
 
 func (w *Writer) WriteChunkedBody(data []byte) (int, error) {
-	lenPart := fmt.Sprintf("%v\r\n", len(data))
-	dataPart := fmt.Sprintf("%v\r\n", data)
+	lenPart := fmt.Sprintf("%x\r\n", len(data))
+	data = append(data, []byte("\r\n")...)
 
 	nl, err := w.Writer.Write([]byte(lenPart))
 	if err != nil {
 		return 0, err
 	}
-	nb, err := w.Writer.Write([]byte(dataPart))
+	nb, err := w.Writer.Write(data)
 	if err != nil {
 		return nl, err
 	}
