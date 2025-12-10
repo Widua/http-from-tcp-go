@@ -1,17 +1,20 @@
 package main
 
 import (
+	"crypto/sha256"
 	"fmt"
-	"github.com/widua/http-from-tcp-go/internal/request"
-	"github.com/widua/http-from-tcp-go/internal/response"
-	"github.com/widua/http-from-tcp-go/internal/server"
 	"io"
 	"log"
 	"net/http"
 	"os"
 	"os/signal"
+	"strconv"
 	"strings"
 	"syscall"
+
+	"github.com/widua/http-from-tcp-go/internal/request"
+	"github.com/widua/http-from-tcp-go/internal/response"
+	"github.com/widua/http-from-tcp-go/internal/server"
 )
 
 const port = 42069
@@ -40,33 +43,61 @@ func handle(w response.Writer, req *request.Request) {
 		handleInternalServerError(w)
 	case strings.HasPrefix(req.RequestLine.RequestTarget, "/httpbin"):
 		handleHttpBin(w, req)
+	case strings.HasPrefix(req.RequestLine.RequestTarget, "/video"):
+		handleVideoEndpoint(w, req)
 	default:
 		handleOk(w)
 
 	}
 }
 
+func handleVideoEndpoint(w response.Writer, req *request.Request) {
+	video, err := os.ReadFile("assets/vim.mp4")
+	if err != nil {
+		handleError(w, err)
+	}
+	w.WriteStatusLine(response.OK)
+
+	headers := response.GetDefaultHeaders(len(video))
+	headers["content-type"] = "video/mp4"
+	w.WriteHeaders(headers)
+
+	w.WriteBody(video)
+
+}
+
 func handleHttpBin(w response.Writer, req *request.Request) {
 	httpBinPath := strings.TrimPrefix(req.RequestLine.RequestTarget, "/httpbin/")
 	headers := response.GetChunkEncodingHeaders()
+	headers["trailers"] = "X-Content-SHA256, X-Content-Length"
 
 	resp, _ := http.Get(fmt.Sprintf("https://httpbin.org/%v", httpBinPath))
 	w.WriteStatusLine(response.OK)
 	w.WriteHeaders(headers)
 
+	fullResp := make([]byte, 0)
+	fullSize := 0
+
 	for {
 		byteBuff := make([]byte, 32)
 		n, err := resp.Body.Read(byteBuff)
+		fullSize += n
+		fullResp = append(fullResp, byteBuff...)
 		if err != nil {
 			if err == io.EOF {
 				w.WriteChunkedBodyDone()
-				return
+				break
 			}
 			continue
 		}
 		w.WriteChunkedBody(byteBuff[:n])
 	}
 
+	trailers := response.GetEmptyHeaders()
+	trailers["x-content-length"] = strconv.Itoa(fullSize)
+	checksum := sha256.Sum256(fullResp)
+	trailers["x-content-sha256"] = fmt.Sprintf("%x", checksum)
+	w.WriteTrailers(trailers)
 }
 
 func handleBadRequest(w response.Writer) {

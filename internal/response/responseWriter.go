@@ -13,6 +13,7 @@ const (
 	INITIALIZED writerState = iota
 	WRITING_HEADERS
 	WRITING_BODY
+	CHUNKED_DONE
 )
 
 type Writer struct {
@@ -42,6 +43,13 @@ func (w *Writer) WriteHeaders(headers headers.Headers) error {
 	if w.state != WRITING_HEADERS {
 		return fmt.Errorf("Headers should be written after status line, and before body")
 	}
+	err := w.headerStyleWriting(headers)
+	w.state = WRITING_BODY
+	return err
+
+}
+
+func (w *Writer) headerStyleWriting(headers headers.Headers) error {
 	for k, v := range headers {
 		headerLine := fmt.Sprintf("%v: %v\r\n", k, v)
 		_, err := w.Writer.Write([]byte(headerLine))
@@ -50,9 +58,8 @@ func (w *Writer) WriteHeaders(headers headers.Headers) error {
 		}
 	}
 	_, err := w.Writer.Write([]byte("\r\n"))
-	w.state = WRITING_BODY
-	return err
 
+	return err
 }
 
 func (w *Writer) WriteBody(body []byte) (int, error) {
@@ -66,6 +73,9 @@ func (w *Writer) WriteBody(body []byte) (int, error) {
 }
 
 func (w *Writer) WriteChunkedBody(data []byte) (int, error) {
+	if w.state != WRITING_BODY {
+		return 0, fmt.Errorf("Chunked body we wrote after headers")
+	}
 	lenPart := fmt.Sprintf("%x\r\n", len(data))
 	data = append(data, []byte("\r\n")...)
 
@@ -82,5 +92,15 @@ func (w *Writer) WriteChunkedBody(data []byte) (int, error) {
 }
 
 func (w *Writer) WriteChunkedBodyDone() (int, error) {
-	return w.Writer.Write([]byte("0\r\n\r\n"))
+	w.state = CHUNKED_DONE
+	return w.Writer.Write([]byte("0\r\n"))
+}
+
+func (w *Writer) WriteTrailers(headers headers.Headers) error {
+	if w.state != CHUNKED_DONE {
+		return fmt.Errorf("Trailers go after Chunked body")
+	}
+	err := w.headerStyleWriting(headers)
+
+	return err
 }

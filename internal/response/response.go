@@ -42,3 +42,7 @@ func GetChunkEncodingHeaders() headers.Headers {
 	headers["content-type"] = "text/plain"
 	return headers
 }
+
+func GetEmptyHeaders() headers.Headers {
+	return headers.NewHeaders()
+}
